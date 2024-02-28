@@ -11,19 +11,7 @@ fullSet = fullSet.groupby("country")
 # 11 cols
 
 def parsePercentages(group):
-    counts = {
-        "age" : 0,
-        "sex" :0,
-        "province":0,
-        "country":0,
-        "latitude":0,
-        "longitude":0,
-        "date_confirmation":0,
-        "additional_information":0,
-        "source":0,
-        "chronic_disease_binary":0,
-        "outcome_group":0
-    }
+    counts = {}
     for column in group.columns:
         counts[column] = group[column].count()
     percentages = {field: (count /  len(group)) * 100 for field, count in counts.items()}
