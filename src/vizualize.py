@@ -15,17 +15,24 @@ def parsePercentages(group):
     for column in group.columns:
         counts[column] = group[column].count()
     percentages = {field: (count /  len(group)) * 100 for field, count in counts.items()}
-    return counts, percentages
+    total_percent = sum(percentages.values()) / 11
+    return counts, percentages, total_percent
 
 results = {}
 
 for country, group in fullSet:
-    counts, percentages = parsePercentages(group)
+    counts, percentages, total_percent = parsePercentages(group)
     results[country] = {
         "DataSize": len(group),
         "counts":counts,
-        "percentages":percentages
+        "percentages":percentages,
+        "overall data": total_percent
     }
 
-print(results)
+results = pd.DataFrame(results).T
 
+plt.figure(figsize=(10, 8))
+plt.barh(results.index, results['overall data'])
+plt.xlabel('Overall Data (%)')
+plt.title('Overall Data Percentage by Country')
+plt.savefig('results.svg')
