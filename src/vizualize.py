@@ -7,8 +7,12 @@ import seaborn as sns
 trainData = pd.read_csv('../dataset/cases_2021_train.csv')
 testData = pd.read_csv('../dataset/cases_2021_test.csv')
 location = pd.read_csv('../dataset/location_2021.csv')
+#https://github.com/samayo/country-json/blob/master/src/country-by-continent.json
+countryMap = pd.read_json('../dataset/countryMap.json')
 fullSet = pd.concat([trainData,testData], ignore_index=True)
-fullSet = fullSet.groupby("country")
+fullSet = pd.merge(fullSet, countryMap, on='country', how='left')
+fullSet = fullSet.groupby("continent")
+
 # 11 cols
 
 # helper function, this is what is counting and calculating data that is currently present
@@ -33,11 +37,12 @@ for country, group in fullSet:
 
 # Convert to data frame to work with data properly, need to use Transpose to set country as col. 
 results = pd.DataFrame(results).T
-
-# Generic plotting
+print(results)
+#Generic plotting
 plt.figure(figsize=(10, 8))
-plt.barh(results.index, results['overall data'])
+sns.barplot(x=results['overall data'], y=results.index)
 plt.xlabel('Overall Data (%)')
+plt.ylabel('Continent')
 plt.title('Overall Data Percentage by Country')
 plt.savefig('results.svg')
 
