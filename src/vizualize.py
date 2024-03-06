@@ -12,8 +12,8 @@ location = pd.read_csv('../dataset/location_2021.csv')
 countryMap = pd.read_json('../dataset/countryMap.json')
 fullSet = pd.concat([trainData,testData], ignore_index=True)
 fullSet = pd.merge(fullSet, countryMap, on='country', how='left')
+countrySet = fullSet.groupby("country")
 fullSet = fullSet.groupby("continent")
-
 # 11 cols
 
 # helper function, this is what is counting and calculating data that is currently present
@@ -37,12 +37,12 @@ for country, group in fullSet:
     }
 
 # Convert to data frame to work with data properly, need to use Transpose to set country as col. 
-results = pd.DataFrame(results).T
+barResults = pd.DataFrame(results).T
 
 # For bar plot of continents
 
 plt.figure(figsize=(10, 8))
-sns.barplot(x=results['overall data'], y=results.index)
+sns.barplot(x=barResults['overall data'], y=barResults.index)
 plt.xlabel('Overall Data (%)')
 plt.ylabel('Continent')
 plt.title('Overall Data Percentage by Country')
@@ -52,18 +52,15 @@ plt.savefig('results.svg')
 
 world = gpd.read_file(gpd.datasets.get_path('naturalearth_lowres'))
 
-
-# Generate random values for each country
-np.random.seed(0)  # Set seed for reproducibility
-world['random_value'] = np.random.rand(len(world))
-
-# Plotting
+for country, group in countrySet:
+    print(group)
+    counts, percentages, total_percent = parsePercentages(group)
+    country_index = world.index[world['name'] == country].tolist()
+    if country_index:
+        world.at[country_index[0], 'popPercent'] = total_percent
+world['popPercent'].fillna(0, inplace=True)
 fig, ax = plt.subplots(1, 1, figsize=(15, 10))
-world.plot(column='random_value', cmap='YlOrRd', linewidth=0.8, ax=ax, edgecolor='0.8')
-ax.axis('off')
-
-fig, ax = plt.subplots(1, 1, figsize=(15, 10))
-world.plot(column='random_value', cmap='YlOrRd', linewidth=0.8, ax=ax, edgecolor='0.8', legend=True)
+world.plot(column='popPercent', cmap='YlOrRd', linewidth=0.8, ax=ax, edgecolor='0.8', legend=True)
 ax.axis('off')
 
 # Add a title
@@ -75,10 +72,6 @@ plt.savefig('temp.svg')
 
 # Load population data (assuming it's in a DataFrame called population_data)
 # You might need to adjust the column names accordingly
-population_data = results['DataSize']
-
-# Merge population data with world map data
-world = world.merge(population_data, how='left', left_on='name', right_index=True)
 
 
 
