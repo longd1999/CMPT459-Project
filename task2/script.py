@@ -6,7 +6,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import requests as req
 from datetime import datetime
-# lib to make string url safe
 import urllib.parse
 
 countries_dict = {}
@@ -27,6 +26,31 @@ invalid_countries = {
     'Diamond Princess': 'Unknown',
     'Cote d\'Ivoire': 'Ivory Coast',
     '' : 'Unknown',
+}
+
+map_outcome = {
+    'Hospitalized': 'Hospitalized',
+    'Recovered': 'Discharged',
+    'Deceased': 'Deceased',
+    'recovered': 'Discharged',
+    'died': 'Deceased',
+    'Under treatment': 'Hospitalized',
+    'Receiving Treatment': 'Hospitalized',
+    'Alive': 'Hospitalized',
+    'discharge': 'Discharged',
+    'stable': 'Hospitalized',
+    'stable condition': 'Hospitalized',
+    'discharged': 'Discharged',
+    'death': 'Deceased',
+    'Stable': 'Hospitalized',
+    'Dead': 'Deceased',
+    'Died': 'Deceased',
+    'Death': 'Deceased',
+    'Discharged from hospital': 'Discharged',
+    'released from quarantine': 'Discharged',
+    'Discharged': 'Discharged',
+    'recovering at home 03.03.2020': 'Discharged',
+    'critical condition': 'Hospitalized'
 }
 
 def open_file(file_path):
@@ -78,8 +102,6 @@ def update_countries_population_dict(countries):
                         }
                 
 
-
-# function to call api with country name and get the population
 def get_population_continent(country):
     country = country.strip()
     country = country.lower()
@@ -97,9 +119,6 @@ def get_population_continent(country):
     else:
         return 0
 
-# def get_region_lats_longs(region):
-
-
 
 def combine_test_train(train_file_path, test_file_path):
     trainFile = open_file(train_file_path)
@@ -111,11 +130,11 @@ def combine_test_train(train_file_path, test_file_path):
         return None;
 
     trainFile = pd.DataFrame(trainFile[1:], columns=trainFile[0])
-    testFile = pd.DataFrame(testFile[1:], columns=testFile[0])
+    #testFile = pd.DataFrame(testFile[1:], columns=testFile[0])
 
     # combine the two dataframes
-    combined = pd.concat([trainFile, testFile])
-
+    #combined = pd.concat([trainFile, testFile])
+    combined = trainFile
     # update the column labels
     combined.rename(columns={'latitude': 'case_lats', 'longitude': 'case_longs'}, inplace=True)
 
@@ -123,6 +142,7 @@ def combine_test_train(train_file_path, test_file_path):
     combined['Combined_Key'] = ''
 
     return combined
+
 
 def count_countries(dataFrame):
     for index, row in dataFrame.iterrows():
@@ -157,6 +177,7 @@ def count_countries(dataFrame):
                 }
     return countries_dict
 
+
 def calculate_missing_incident_rate(dataFrame):
     dataFrame = dataFrame.reset_index(drop=True)
     count = 0
@@ -178,9 +199,11 @@ def calculate_missing_incident_rate(dataFrame):
     print(f'Calculated {count} missing incident rates')
     return dataFrame   
 
+
 def process_combined_data(dataFrame, updatedCombinedFilePath):
     dataFrame = dataFrame.reset_index(drop=True)
     dataFrame.drop_duplicates(subset=None, keep="first", inplace=False)
+    indices_to_drop = []
     for index, row in dataFrame.iterrows():
         # if the country is invalid, then update it to the correct country
         if row['country'] in invalid_countries:
@@ -204,7 +227,27 @@ def process_combined_data(dataFrame, updatedCombinedFilePath):
             dataFrame.at[index, 'country'] = 'Taiwan'
             dataFrame.at[index, 'Combined_Key'] = 'Taiwan'
             dataFrame.at[index, 'province'] = ''
-    
+            
+        dataFrame.at[index, 'outcome_group'] = map_outcome[row['outcome_group']] if row['outcome_group'] in map_outcome else row['outcome_group']
+        if type(row['outcome']) != str:
+            print(f'Outcome is not a string: {row["outcome"]}')
+            # print whole row
+            print(row)
+        else:
+            # make outcome all lowercase and first letter uppercase
+            dataFrame.at[index, 'outcome'] = row['outcome'].lower().capitalize().strip() if row['outcome'] else 'Unknown'
+   
+        # if age or sex is missing, then add to indices_to_drop
+        if row['age'] == '' or row['sex'] == '':
+            indices_to_drop.append(index)
+            
+        # if any column is numeric then round it to 4 decimal places
+        for column in dataFrame.columns:
+            if dataFrame[column].dtype == 'float64':
+                dataFrame.at[index, column] = round(row[column], 4)
+
+    dataFrame.drop(list(indices_to_drop), inplace=True, errors='ignore')
+    dataFrame.reset_index(drop=True)
     unique_countries = dataFrame['country'].unique()
     update_countries_population_dict(unique_countries)
     count_countries(dataFrame)
@@ -243,10 +286,15 @@ def process_location_date(dataFrame, invalid_countries):
             if country in countries_dict:
                 dataFrame.at[index, 'Lat'] = countries_dict[country]['Lat']
                 dataFrame.at[index, 'Long_'] = countries_dict[country]['Long_']   
+                
+        for column in dataFrame.columns:
+            if dataFrame[column].dtype == 'float64':
+                dataFrame.at[index, column] = round(row[column], 4)
     
     dataFrame = dataFrame.dropna(subset=['Country_Region'])
     
     return dataFrame
+
 
 def handle_location_data_duplicates(dataFrame):
     last_key = None
@@ -321,6 +369,7 @@ def handle_location_data_duplicates(dataFrame):
     dataFrame = pd.concat([dataFrame, newEntries], ignore_index=True)
     return dataFrame
 
+
 def safe_convert_to_int(value):
     try:
         return int(value)
@@ -336,6 +385,7 @@ def safe_convert_to_int(value):
                 print('Value is null')
                 return 0
             return 0
+
 
 def read_locationsCSV(locationFilePath, updatedLocationsFilePath):
     locations = open_file(locationFilePath)
@@ -368,7 +418,7 @@ def add_countries_data_availability(countries_dict):
         
         countries_dict[country]['data_availability'] = data_availability_percentage
         
-# create bar graph for each continent based on the number of cases with the x-axis being the continent and the y-axis being the number of cases and more cases should be darker in color
+
 def create_bar_graph(countries_dict):
     continent_cases = {}
     for country in countries_dict:
@@ -380,6 +430,7 @@ def create_bar_graph(countries_dict):
     continent_cases = {k: v for k, v in sorted(continent_cases.items(), key=lambda item: item[1], reverse=True)}
     fig = px.bar(x=list(continent_cases.keys()), y=list(continent_cases.values()), title='Cases per Continent', labels={'x': 'Continent', 'y': 'Number of Cases'})
     fig.show()
+
 
 def create_heatmap(data):
     # Convert the dictionary data into a Pandas DataFrame
@@ -400,7 +451,8 @@ def create_heatmap(data):
                         range_color=((min_value ), (0.00002 )),
                         title="Data Availability by Country (Log Scale)")
     fig.show()
-    
+
+        
 train_file_path = '/Users/manvirheer/sfu/cmpt459spring2024/CMPT459-Project/task2/project_desc_files/csvs/cases_2021_train.csv'
 test_file_path = '/Users/manvirheer/sfu/cmpt459spring2024/CMPT459-Project/task2/project_desc_files/csvs/cases_2021_test.csv'
 locationFilePath = '/Users/manvirheer/sfu/cmpt459spring2024/CMPT459-Project/task2/project_desc_files/csvs/location_2021.csv'
@@ -410,9 +462,42 @@ combined_DF = combine_test_train(train_file_path=train_file_path, test_file_path
 processed_combined_data = process_combined_data(combined_DF, updatedCombinedFilePath)
 
 processed_location_data = read_locationsCSV(locationFilePath, updatedLocationsFilePath=updatedLocationsFilePath)
+# track the unmerged data
+merged_df = pd.merge(processed_combined_data, processed_location_data, on='Combined_Key', how='left', suffixes=('', '_drop'))
+merged_df = merged_df.loc[:, ~merged_df.columns.str.endswith('_drop')]
+# drop column country_region
+merged_df = merged_df.drop(columns='Country_Region')
+merged_df = merged_df.drop(columns = 'Province_State')
+Philippines_row = processed_location_data.loc[processed_location_data['Country_Region'] == 'Philippines']
+track_row = []
+indexToDrop = []
+for index, row in merged_df.iterrows():
+    
+    if row['country'] == 'Philippines':
+        row['Last_Update'] = Philippines_row['Last_Update'].values[0]
+        row['Deaths'] = Philippines_row['Deaths'].values[0]
+        row['Recovered'] = Philippines_row['Recovered'].values[0]
+        row['Active'] = Philippines_row['Active'].values[0]
+        row['Confirmed'] = Philippines_row['Confirmed'].values[0]
+        row['Incident_Rate'] = Philippines_row['Incident_Rate'].values[0]
+        row['Case_Fatality_Ratio'] = Philippines_row['Case_Fatality_Ratio'].values[0]
+        row['Expected_Mortality_Rate'] = Philippines_row['Expected_Mortality_Rate'].values[0]
+        row['Lat'] = Philippines_row['Lat'].values[0]
+        row['Long_'] = Philippines_row['Long_'].values[0]
+    if row['Lat'] == '' or pd.isna(row['Lat']):
+       track_row.append({'country': row['country'], 'province': row['province']})
+       indexToDrop.append(index)
 
-merged_df = pd.merge(processed_combined_data, processed_location_date, on='Combined_Key', how='left')
+merged_df = merged_df.drop(indexToDrop)
+merged_df.reset_index(drop=True)
+
+# drop duplicates from track_row
+track_row = [dict(t) for t in {tuple(d.items()) for d in track_row}]
+    
+# print track_row
+for row in track_row:
+    print(row)
+# drop one of the duplicate Combined_Key columns
 merged_df.to_csv('/Users/manvirheer/sfu/cmpt459spring2024/CMPT459-Project/task2/added_reference_files/merged_data.csv', index=False)
 add_countries_data_availability(countries_dict)
-create_heatmap(countries_dict)
-create_bar_graph(countries_dict)
+
