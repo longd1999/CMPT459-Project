@@ -417,40 +417,6 @@ def add_countries_data_availability(countries_dict):
             data_availability_percentage = float(f'{(countries_dict[country]["count"] / countries_dict[country]["population"]):.7f}')
         
         countries_dict[country]['data_availability'] = data_availability_percentage
-        
-
-def create_bar_graph(countries_dict):
-    continent_cases = {}
-    for country in countries_dict:
-        continent = countries_dict[country]['continent']
-        if continent in continent_cases:
-            continent_cases[continent] += countries_dict[country]['count']
-        else:
-            continent_cases[continent] = countries_dict[country]['count']
-    continent_cases = {k: v for k, v in sorted(continent_cases.items(), key=lambda item: item[1], reverse=True)}
-    fig = px.bar(x=list(continent_cases.keys()), y=list(continent_cases.values()), title='Cases per Continent', labels={'x': 'Continent', 'y': 'Number of Cases'})
-    fig.show()
-
-
-def create_heatmap(data):
-    # Convert the dictionary data into a Pandas DataFrame
-    df = pd.DataFrame.from_dict(data, orient='index').reset_index().rename(columns={'index': 'country'})
-    #sort on data_availability and print top 10
-    df = df.sort_values(by='data_availability', ascending=False)
-    print(df.head(10))
-    min_value = df['data_availability'].min()
-    max_value = df['data_availability'].max()
-    # remove vatican city
-    df = df[df['country'] != 'Vatican City']
-    df['log_data_availability'] = np.log10(df['data_availability'] + 1)  # Adding 1 to avoid log(0)
-
-    fig = px.choropleth(df, locations="country",
-                        locationmode="country names",
-                        color="data_availability",
-                        color_continuous_scale=px.colors.sequential.Plasma,
-                        range_color=((min_value ), (0.00002 )),
-                        title="Data Availability by Country (Log Scale)")
-    fig.show()
 
         
 train_file_path = '/Users/manvirheer/sfu/cmpt459spring2024/CMPT459-Project/task2/project_desc_files/csvs/cases_2021_train.csv'
